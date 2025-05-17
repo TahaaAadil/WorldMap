@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Interactive World Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <style>
+    body, html { margin: 0; padding: 0; }
+    #map { height: 100vh; width: 100vw; }
+    .legend {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      line-height: 18px;
+      color: #555;
+      border-radius: 5px;
+    }
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+  // Initialize map
+  const map = L.map('map').setView([20, 0], 2);
+
+  // Tile layer
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Add geocoder with full functionality
+  L.Control.geocoder({
+    defaultMarkGeocode: false
+  }).on('markgeocode', function(e) {
+    const center = e.geocode.center;
+    L.marker(center).addTo(map)
+      .bindPopup(e.geocode.name)
+      .openPopup();
+    map.setView(center, 5);
+  }).addTo(map);
+
+  // Special colors and flags
+  const specialCountries = {
+    'PK': '#046A38',
+    'CN': '#DE2910',
+    'TR': '#E30A17',
+    'SA': '#245C36',
+    'PS': '#FF0000',
+    'US': '#3C3B6E',
+    'MY': '#006847',
+    'RU': '#0039A6',
+    'IN': '#FF9933',
+    'IR': '#239F40'
+  };
+
+  const flags = {
+    'PK': '🇵🇰', 'CN': '🇨🇳', 'TR': '🇹🇷', 'SA': '🇸🇦',
+    'PS': '🇵🇸', 'US': '🇺🇸', 'MY': '🇲🇾', 'RU': '🇷🇺',
+    'IN': '🇮🇳', 'IR': '🇮🇷'
+  };
+
+  // Random color generator
+  function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  }
+
+  let geojsonLayer;
+
+  // Load country boundaries and apply logic
+  fetch('https://geojson.xyz/naturalearth-3.3.0/ne_50m_admin_0_countries.geojson')
+    .then(res => res.json())
+    .then(data => {
+      geojsonLayer = L.geoJSON(data, {
+        style: () => ({
+          fillColor: 'transparent',
+          weight: 1,
+          opacity: 1,
+          color: '#aaa',
+          fillOpacity: 0
+        }),
+        onEachFeature: function (feature, layer) {
+          const code = feature.properties.iso_a2;
+          const name = feature.properties.name;
+          const flag = flags[code] || '';
+          const color = specialCountries[code] || getRandomColor();
+
+          layer.bindPopup(`<b>${name} ${flag}</b><br>ISO Code: ${code}`);
+
+          layer.on('click', function () {
+            geojsonLayer.eachLayer(l => geojsonLayer.resetStyle(l)); // Clear all
+            layer.setStyle({
+              fillColor: color,
+              fillOpacity: 0.8,
+              color: '#000',
+              weight: 2
+            });
+            layer.bringToFront();
+          });
+        }
+      }).addTo(map);
+    });
+
+  // Legend
+  const legend = L.control({position: 'bottomright'});
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = `
+      <strong>Special Countries</strong><br>
+      <i style="background:#046A38"></i> Pakistan 🇵🇰<br>
+      <i style="background:#DE2910"></i> China 🇨🇳<br>
+      <i style="background:#E30A17"></i> Turkey 🇹🇷<br>
+      <i style="background:#245C36"></i> Saudi Arabia 🇸🇦<br>
+      <i style="background:#FF0000"></i> Palestine 🇵🇸<br>
+      <i style="background:#3C3B6E"></i> USA 🇺🇸<br>
+      <i style="background:#006847"></i> Malaysia 🇲🇾<br>
+      <i style="background:#0039A6"></i> Russia 🇷🇺<br>
+      <i style="background:#FF9933"></i> India 🇮🇳<br>
+      <i style="background:#239F40"></i> Iran 🇮🇷<br>
+      <hr><small>Other countries get random color on click</small>
+    `;
+    return div;
+  };
+  legend.addTo(map);
+</script>
+
+</body>
+</html>
